@@ -57,6 +57,19 @@
     #define ICECREAM_CPP23_COMPAT
 #endif
 
+// Prevent Windows.h macros from interfering
+#if defined(_WIN32) || defined(_WIN64)
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
+    #if defined(max)
+        #undef max
+    #endif
+    #if defined(min)
+        #undef min
+    #endif
+#endif
+
 
 #if defined(_MSC_VER)
     // Disable unharmful MSVC warnings within this header, so that we can build it without
@@ -818,11 +831,8 @@ namespace icecream{ namespace detail
         );
   #else
     template <class T>
-    auto is_fmt_formattable_impl(int) -> std::false_type;
+    auto is_fmt_formattable_impl(...) -> std::false_type;
   #endif
-
-    template <class T>
-    auto is_fmt_formattable_impl(...) -> std::false_type ;
 
     template <class T>
     using is_fmt_formattable = decltype(is_fmt_formattable_impl<remove_cvref_t<T>>(0));
@@ -1115,7 +1125,7 @@ namespace icecream{ namespace detail
     // -------------------------------------------------- min
 
     template <typename T>
-    auto min(T const& lho, T const& rho) -> T const&
+    constexpr auto min(T const& lho, T const& rho) -> T const&
     {
         return (rho < lho) ? rho : lho;
     }
@@ -2237,8 +2247,8 @@ namespace icecream{ namespace detail
                 // This will handle the unlikely situation where a huge str is big
                 // enough to its size overflow when converted to a `std::streamsize`
                 auto chunk_size =
-                    (remaining > static_cast<size_t>(std::numeric_limits<std::streamsize>::max()))
-                        ? std::numeric_limits<std::streamsize>::max()
+                    (remaining > static_cast<size_t>((std::numeric_limits<std::streamsize>::max)()))
+                        ? (std::numeric_limits<std::streamsize>::max)()
                         : static_cast<std::streamsize>(remaining);
 
                 this->stream_.write(data, chunk_size);
@@ -4201,7 +4211,7 @@ namespace detail {
                     // or if there is an overflow on long int
                     || (
                         (
-                         lnum == std::numeric_limits<long>::max()
+                         lnum == (std::numeric_limits<long>::max)()
                          || lnum == std::numeric_limits<long>::lowest()
                         )
                         && errno == ERANGE
@@ -4209,7 +4219,7 @@ namespace detail {
 
                     // or if there is an overflow to convert from long to ptrdiff
                     || (
-                        lnum > std::numeric_limits<ptrdiff_t>::max()
+                        lnum > (std::numeric_limits<ptrdiff_t>::max)()
                         || lnum < std::numeric_limits<ptrdiff_t>::lowest()
                     )
                 ) {
@@ -4342,7 +4352,7 @@ namespace detail {
 
             // An Iterator instance evaluating equal to the range Sentinel. Since we will
             // backwardly iterate over the range, that is the default starting point.
-            advance_it(begin(range), end(range), std::numeric_limits<size_t>::max());
+            advance_it(begin(range), end(range), (std::numeric_limits<size_t>::max)());
 
         // When derreferencing a `reverse_iterator<IT>`, the retrieved element will be one
         // before the element pointed by IT. So here we fix that offset.
@@ -4432,7 +4442,7 @@ namespace detail {
 
         if (
             mb_range_size
-            && *mb_range_size > static_cast<size_t>(std::numeric_limits<ptrdiff_t>::max())
+            && *mb_range_size > static_cast<size_t>((std::numeric_limits<ptrdiff_t>::max)())
         ) {
             return std::string("<this range size greater than the maximum supported>");
         }
@@ -5731,7 +5741,7 @@ namespace detail {
             }
 
             this->start = mb_start ? *mb_start : 0;
-            this->stop = mb_stop ? *mb_stop : std::numeric_limits<ptrdiff_t>::max();
+            this->stop = mb_stop ? *mb_stop : (std::numeric_limits<ptrdiff_t>::max)();
             this->step = mb_step ? *mb_step : 1;
         }
 
@@ -5777,7 +5787,7 @@ namespace detail {
             };
 
             this->start = mb_start ? normalize_idx(*mb_start) : 0;
-            this->stop = mb_stop ? normalize_idx(*mb_stop) : std::numeric_limits<ptrdiff_t>::max();
+            this->stop = mb_stop ? normalize_idx(*mb_stop) : (std::numeric_limits<ptrdiff_t>::max)();
             this->step = mb_step ? *mb_step : 1;
         }
 
@@ -5891,7 +5901,7 @@ namespace detail {
     template <typename T, typename Proj>
     auto operator|(T&& t, RangeViewArgs<Proj> view_args)
         -> typename std::enable_if<
-            std::is_base_of<ranges::view_base, resolve_view_t<T>>::value,
+            std::is_base_of<::ranges::view_base, resolve_view_t<T>>::value,
             decltype(std::forward<T>(t) | rv3v::transform(std::declval<RangeView<Proj>&>()))
         >::type
     {
@@ -5929,7 +5939,7 @@ namespace detail {
     template <typename T0, typename T1, typename Proj>
     auto operator|(std::pair<T0&, RangeViewArgs<Proj>> t0, T1&& t1)
         -> typename std::enable_if<
-            std::is_base_of<ranges::view_base, resolve_view_t<T1>>::value,
+            std::is_base_of<::ranges::view_base, resolve_view_t<T1>>::value,
             decltype(t0.first | rv3v::transform(std::declval<RangeView<Proj>&>()) | std::forward<T1>(t1))
         >::type
     {
