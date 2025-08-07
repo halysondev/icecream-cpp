@@ -428,15 +428,27 @@ namespace icecream{ namespace detail
 
     // -------------------------------------------------- remove_ref_t
 
-    template <typename T>
-    using remove_ref_t = typename std::remove_reference<T>::type;
+    #if __cplusplus >= 201402L
+        // C++14 and later have std::remove_reference_t
+        template <typename T>
+        using remove_ref_t = std::remove_reference_t<T>;
+    #else
+        template <typename T>
+        using remove_ref_t = typename std::remove_reference<T>::type;
+    #endif
 
 
     // -------------------------------------------------- remove_cvref_t
 
-    template <typename T>
-    using remove_cvref_t =
-        typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+    #if __cplusplus >= 202002L
+        // C++20 and later have std::remove_cvref_t
+        template <typename T>
+        using remove_cvref_t = std::remove_cvref_t<T>;
+    #else
+        template <typename T>
+        using remove_cvref_t =
+            typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+    #endif
 
 
     // -------------------------------------------------- int_sequence
