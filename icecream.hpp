@@ -50,6 +50,13 @@
 #include <utility>
 #include <vector>
 
+// C++23 compatibility check for MSVC
+#if defined(_MSC_VER) && _MSVC_LANG >= 202302L
+    #define ICECREAM_CPP23_COMPAT
+#elif !defined(_MSC_VER) && __cplusplus >= 202302L
+    #define ICECREAM_CPP23_COMPAT
+#endif
+
 
 #if defined(_MSC_VER)
     // Disable unharmful MSVC warnings within this header, so that we can build it without
@@ -68,6 +75,7 @@
     // These both are triggered in `Variant` class, due to the unamed union:
     // C4582: constructor is not implicitly called
     // C4583: destructor is not implicitly called
+    // C++23 compatibility warnings (disable with caution)
     #pragma warning(disable: 4127 4355 4514 4623 4626 4820 4866 4868 5027 5045 4582 4583)
 #endif
 
@@ -432,6 +440,10 @@ namespace icecream{ namespace detail
         // C++14 and later have std::remove_reference_t
         template <typename T>
         using remove_ref_t = std::remove_reference_t<T>;
+    #elif defined(_MSC_VER) && _MSVC_LANG >= 201402L
+        // MSVC with C++14+ mode
+        template <typename T>
+        using remove_ref_t = std::remove_reference_t<T>;
     #else
         template <typename T>
         using remove_ref_t = typename std::remove_reference<T>::type;
@@ -442,6 +454,10 @@ namespace icecream{ namespace detail
 
     #if __cplusplus >= 202002L
         // C++20 and later have std::remove_cvref_t
+        template <typename T>
+        using remove_cvref_t = std::remove_cvref_t<T>;
+    #elif defined(_MSC_VER) && _MSVC_LANG >= 202002L
+        // MSVC with C++20/C++23 mode
         template <typename T>
         using remove_cvref_t = std::remove_cvref_t<T>;
     #else
@@ -800,6 +816,9 @@ namespace icecream{ namespace detail
             fmt::formatter<T, char>{},
             std::true_type{}
         );
+  #else
+    template <class T>
+    auto is_fmt_formattable_impl(int) -> std::false_type;
   #endif
 
     template <class T>
@@ -5835,12 +5854,21 @@ namespace detail {
 
     // Pair (Range, IC_V) | PartialView
     template <typename T0, typename T1, typename Proj>
+    #if defined(ICECREAM_CPP23_COMPAT) || (__cplusplus >= 202002L)
     requires std::ranges::view<resolve_view_t<T1>>
+    #endif
     auto operator|(std::pair<T0&, RangeViewArgs<Proj>> t0, T1&& t1)
+    #if !defined(ICECREAM_CPP23_COMPAT) && (__cplusplus < 202002L)
+        -> decltype(t0.first | std::views::transform(std::declval<RangeView<Proj>&>()) | std::forward<T1>(t1))
+    #endif
     {
         auto rv = RangeView<Proj>(t0.second);
         rv.normalize_slice(t0.first);
+        #if defined(ICECREAM_CPP23_COMPAT) || (__cplusplus >= 202002L)
         return t0.first | std::views::transform(std::move(rv)) | std::forward<T1>(t1);
+        #else
+        return t0.first | std::views::transform(std::move(rv)) | std::forward<T1>(t1);
+        #endif
     }
   #endif
 
@@ -5850,7 +5878,7 @@ namespace detail {
     template <typename T, typename Proj>
     auto operator|(T&& t, RangeViewArgs<Proj> view_args)
         -> typename std::enable_if<
-            std::is_base_of<ranges::view_base, T>::value,
+            std::is_base_of<::ranges::view_base, T>::value,
             decltype(std::forward<T>(t) | rv3v::transform(std::declval<RangeView<Proj>&>()))
         >::type
     {
